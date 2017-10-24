@@ -3,6 +3,7 @@ import Data.List
 import Data.Maybe
 
 -------------------------------------------------------------------------------
+
 data Term = Var Char | Abs Char Term | App Term Term deriving (Eq, Show)
 data Type = Phi Int | Arrow Type Type deriving (Eq, Show)
 
@@ -10,10 +11,12 @@ type Ctx = [(Term, Type)]
 type Sub = Type -> Type
 
 -------------------------------------------------------------------------------
+
 pp :: Term -> Maybe Type
 pp tm = tp
   where
     (_, _, tp) = pp' tm 0
+
 
 pp' :: Term -> Int -> (Int, Ctx, Maybe Type)
 pp' tm@(Var x) i
@@ -29,19 +32,25 @@ pp' (App n m) i
     Nothing   -> (0, [], Nothing)
     Just tp1' -> case tp2 of
                    Nothing   -> (0, [], Nothing)
-                   Just tp2' -> let s1 = unify tp1' (Arrow tp2' (Phi (k + 1))) in
-                                case s1 of
+                   Just tp2' -> case s1 of
                                   Nothing  -> (0, [], Nothing)
-                                  Just s1' -> let s2 = unifyctxs (subs s1' ctx1) (subs s1' ctx2) in
-                                              case s2 of
+                                  Just s1' -> case s2 of
                                                 Nothing  -> (0, [], Nothing)
-                                                Just s2' -> let s = s2' . s1' in (k + 1, subs s (ctx1 ++ ctx2), Just (s (Phi (k + 1))))
+                                                Just s2' -> (k + 1, ctx, tp)
+                                                  where
+                                                    s = s2' . s1'
+                                                    ctx = subs s (ctx1 ++ ctx2)
+                                                    tp = Just (s (Phi (k + 1)))
+                                    where
+                                      ctx1' = subs s1' ctx1
+                                      ctx2' = subs s1' ctx2
+                                      s2 = unifyctxs ctx1' ctx2'
+                    where
+                       s1 = unify tp1' (Arrow tp2' (Phi (k + 1)))
   where
     (j, ctx1, tp1) = pp' n i
     (k, ctx2, tp2) = pp' m j
 
-subs :: Sub -> Ctx -> Ctx
-subs s = map (\(tm, tp) -> (tm, s tp))
 
 unify :: Type -> Type -> Maybe Sub
 unify tp@(Phi _) tp'
@@ -63,6 +72,7 @@ unify (Arrow tp1 tp2) (Arrow tp1' tp2')
     compose (Just s) (Just s') = Just (s . s')
     compose _ _                = Nothing
 
+
 unifyctxs :: Ctx -> Ctx -> Maybe Sub
 unifyctxs [] _
   = Just (\x -> x)
@@ -78,13 +88,8 @@ unifyctxs ((tm, tp):ctx) ctx'
                         s'' = unifyctxs (subs s' ctx) (subs s' ctx'')
                         ctx'' = ctx' \\ [(tm, tp)]
 
+
+subs :: Sub -> Ctx -> Ctx
+subs s = map (\(tm, tp) -> (tm, s tp))
+
 -------------------------------------------------------------------------------
-
-s :: Type -> Type
-s (Phi 1)
-  = (Phi 2)
-s x = x
-
-context :: Ctx
-context
-  = [(Var 'x', Phi 1), (Var 'y', Phi 3)]
