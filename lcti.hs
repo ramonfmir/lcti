@@ -1,3 +1,4 @@
+import Data.Bool
 import Data.Maybe
 
 -------------------------------------------------------------------------------
@@ -22,10 +23,12 @@ subs (Just s) c
   = Just (map (\(tm, tp) -> (tm, s tp)) c)
 
 unify :: Type -> Type -> Maybe Sub
-unify tp@(Phi _) tp'@(Phi _)
-  = Just (\x -> if x == tp then tp' else x)
-unify tp@(Phi x) tp'
-  = Nothing
+unify tp@(Phi _) tp'
+  | appears tp tp' = Nothing
+  | otherwise      = Just (\x -> if x == tp then tp' else x)
+  where
+    appears (Phi x) (Phi y)     = x == y
+    appears tp1 (Arrow tp2 tp3) = (appears tp1 tp2) || (appears tp1 tp3)
 unify tp tp'@(Phi _)
   = unify tp' tp
 unify (Arrow tp1 tp2) (Arrow tp1' tp2')
