@@ -1,4 +1,5 @@
 import Data.Bool
+import Data.List
 import Data.Maybe
 
 -------------------------------------------------------------------------------
@@ -10,17 +11,24 @@ type Sub = Type -> Type
 
 -------------------------------------------------------------------------------
 pp :: Term -> Maybe Type
-pp tm = pp' tm [] []
+pp tm = tp
+  where
+    (_, _, tp) = pp' tm 0
 
-pp' :: Term -> Ctx -> [Int] -> Maybe Type
-pp' (Var x) c types
-  = Nothing
+pp' :: Term -> Int -> (Int, Ctx, Maybe Type)
+pp' tm@(Var x) i
+  = let tp = Phi (i + 1) in (i + 1, [(tm, tp)], Just tp)
+pp' (Abs x tm) i
+  = let (j, ctx, tp') = pp' tm i in case tp' of
+      Nothing -> (0, [], Nothing)
+      Just tp -> case lookup (Var x) ctx of
+                   Nothing -> (j + 1, ctx, Just (Arrow (Phi (j + 1)) tp))
+                   Just e  -> (j, ctx \\ [((Var x), e)], Just (Arrow e tp))
+pp' (App n m) i
+  = (0, [], Nothing)
 
-subs :: Maybe Sub -> Ctx -> Maybe Ctx
-subs Nothing _
-  = Nothing
-subs (Just s) c
-  = Just (map (\(tm, tp) -> (tm, s tp)) c)
+subs :: Sub -> Ctx -> Ctx
+subs s = map (\(tm, tp) -> (tm, s tp))
 
 unify :: Type -> Type -> Maybe Sub
 unify tp@(Phi _) tp'
@@ -42,7 +50,20 @@ unify (Arrow tp1 tp2) (Arrow tp1' tp2')
     compose (Just s) (Just s') = Just (s . s')
     compose _ _                = Nothing
 
-
+unifyctxs :: Ctx -> Ctx -> Maybe Sub
+unifyctxs [] _
+  = Just (\x -> x)
+unifyctxs ((tm, tp):ctx) ctx'
+  = case lookup tm ctx' of
+      Nothing  -> unifyctxs ctx ctx'
+      Just tp' -> let s = unify tp tp' in case s of
+                    Nothing -> Nothing
+                    Just s' -> case s'' of
+                                 Nothing   -> Nothing
+                                 Just s''' -> Just (s''' . s')
+                      where
+                        s'' = unifyctxs (subs s' ctx) (subs s' ctx'')
+                        ctx'' = ctx' \\ [(tm, tp)]
 
 -------------------------------------------------------------------------------
 
