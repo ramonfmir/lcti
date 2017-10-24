@@ -25,7 +25,20 @@ pp' (Abs x tm) i
                    Nothing -> (j + 1, ctx, Just (Arrow (Phi (j + 1)) tp))
                    Just e  -> (j, ctx \\ [((Var x), e)], Just (Arrow e tp))
 pp' (App n m) i
-  = (0, [], Nothing)
+  = case tp1 of
+    Nothing   -> (0, [], Nothing)
+    Just tp1' -> case tp2 of
+                   Nothing   -> (0, [], Nothing)
+                   Just tp2' -> let s1 = unify tp1' (Arrow tp2' (Phi (k + 1))) in
+                                case s1 of
+                                  Nothing  -> (0, [], Nothing)
+                                  Just s1' -> let s2 = unifyctxs (subs s1' ctx1) (subs s1' ctx2) in
+                                              case s2 of
+                                                Nothing  -> (0, [], Nothing)
+                                                Just s2' -> let s = s2' . s1' in (k + 1, subs s (ctx1 ++ ctx2), Just (s (Phi (k + 1))))
+  where
+    (j, ctx1, tp1) = pp' n i
+    (k, ctx2, tp2) = pp' m j
 
 subs :: Sub -> Ctx -> Ctx
 subs s = map (\(tm, tp) -> (tm, s tp))
